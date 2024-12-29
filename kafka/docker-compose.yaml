@@ -1,0 +1,73 @@
+version: '3'
+
+services:
+  zookeeper:
+    image: zookeeper:${ZOOKEEPER_VERSION}
+    container_name: zookeeper
+    ports:
+      - "${ZOOKEEPER_PORT}:2181"
+    networks:
+      - kafka-net
+    environment:
+      ZOOKEEPER_CLIENT_PORT: ${ZOOKEEPER_PORT}
+      ZOOKEEPER_TICK_TIME: ${ZOOKEEPER_TICK_TIME}
+      ZOOKEEPER_INIT_LIMIT: ${ZOOKEEPER_INIT_LIMIT}
+      ZOOKEEPER_SYNC_LIMIT: ${ZOOKEEPER_SYNC_LIMIT}
+    volumes:
+      - zookeeper-data:/data
+      - zookeeper-datalog:/datalog
+
+  kafka:
+    image: ${KAFKA_IMAGE}
+    container_name: kafka
+    ports:
+      - "${KAFKA_INTERNAL_PORT}:9092"
+      - "${KAFKA_EXTERNAL_PORT}:29092"
+    networks:
+      - kafka-net
+    environment:
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:${ZOOKEEPER_PORT}"
+      KAFKA_LISTENERS: "INTERNAL://kafka:${KAFKA_INTERNAL_PORT},EXTERNAL://0.0.0.0:${KAFKA_EXTERNAL_PORT}"
+      KAFKA_ADVERTISED_LISTENERS: "INTERNAL://kafka:${KAFKA_INTERNAL_PORT},EXTERNAL://localhost:${KAFKA_EXTERNAL_PORT}"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: ${KAFKA_LISTENER_SECURITY_PROTOCOL_MAP}
+      KAFKA_INTER_BROKER_LISTENER_NAME: ${KAFKA_INTER_BROKER_LISTENER_NAME}
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: ${KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR}
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+      - kafka-logs:/kafka/logs
+
+  akhq:
+    image: ${AKHQ_IMAGE}
+    container_name: akhq
+    ports:
+      - "${AKHQ_PORT}:8080"
+    networks:
+      - kafka-net
+    environment:
+      AKHQ_CONFIGURATION: |
+        akhq:
+          connections:
+            kafka-cluster:
+              properties:
+                bootstrap.servers: "kafka:${KAFKA_INTERNAL_PORT}"
+
+  kafdrop:
+    image: ${KAFDROP_IMAGE}
+    container_name: kafdrop
+    ports:
+      - "${KAFDROP_PORT}:9000"
+    networks:
+      - kafka-net
+    environment:
+      KAFKA_BROKERCONNECT: "kafka:${KAFKA_INTERNAL_PORT}"
+      JVM_OPTS: ${KAFDROP_JVM_OPTS}
+
+networks:
+  kafka-net:
+    driver: bridge
+
+volumes:
+  zookeeper-data:
+  zookeeper-datalog:
+  kafka-data:
+  kafka-logs:

@@ -1,0 +1,77 @@
+version: "3"
+
+services:
+    elasticsearch:
+        container_name: elasticsearch
+        build:
+            context: elasticsearch
+            args:
+                ELK_VERSION: ${ELK_VERSION}
+        volumes:
+            - elasticsearch_data:/usr/share/elasticsearch/data
+            - ./elasticsearch/config/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
+        ports:
+            # Port 9200 is used for all API calls over HTTP. This includes search and aggregations, monitoring and anything else that uses a HTTP request. All client libraries will use this port to talk to Elasticsearch
+            - "9200:9200"
+            # Port 9300 is a custom binary protocol used for communications between nodes in a cluster. For things like cluster updates, master elections, nodes joining/leaving, shard allocation
+            - "9300:9300"
+        environment:
+            ES_JAVA_OPTS: "-Xmx2g -Xms2g"
+            ELASTIC_PASSWORD: ${ELASTIC_PASSWORD}
+        networks:
+            - elasticsearch_elk
+
+    logstash:
+        container_name: logstash
+        build:
+            context: logstash
+            args:
+                ELK_VERSION: ${ELK_VERSION}
+        volumes:
+            - ./logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
+            - ./logstash/pipeline:/usr/share/logstash/pipeline:ro
+            - logstash_data:/usr/share/logstash/data
+        ports:
+            # Logstash will receive logs over this port
+            - "5000:5000"
+            # Logstash will give the status over this port
+            - "9600:9600"
+        environment:
+            ELASTICSEARCH_URL: http://elasticsearch:9200
+            ELASTIC_USER: ${ELASTIC_USER}
+            ELASTIC_PASSWORD: ${ELASTIC_PASSWORD}
+            LS_JAVA_OPTS: "-Xmx256m -Xms256m"
+        networks:
+            - elasticsearch_elk
+        depends_on:
+            - elasticsearch
+
+    kibana:
+        container_name: kibana
+        build:
+            context: kibana
+            args:
+                ELK_VERSION: ${ELK_VERSION}
+        volumes:
+            - ./kibana/config/kibana.yml:/usr/share/kibana/config/kibana.yml:ro
+            - kibana_data:/usr/share/kibana/data
+        ports:
+            # Kibana UI will be hosted over this port
+            - "5601:5601"
+        environment:
+            ELASTIC_USER: ${ELASTIC_USER}
+            ELASTIC_PASSWORD: ${ELASTIC_PASSWORD}
+            ELASTICSEARCH_URL: http://elasticsearch:9200
+        networks:
+            - elasticsearch_elk
+        depends_on:
+            - elasticsearch
+
+networks:
+    elasticsearch_elk:
+        external: true
+
+volumes:
+  elasticsearch_data:
+  kibana_data:
+  logstash_data:

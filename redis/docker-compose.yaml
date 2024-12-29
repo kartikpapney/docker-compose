@@ -1,0 +1,32 @@
+version: '3'
+
+services:
+  redis:
+    image: redis:${REDIS_VERSION}
+    container_name: redis
+    ports:
+      - "${REDIS_PORT}:6379"
+    networks:
+      - redis-net
+    volumes:
+      - redis-data:/data
+    restart: always  
+
+  redisinsight:
+    image: redis/redisinsight:${REDISINSIGHT_VERSION}
+    container_name: redisinsight
+    ports:
+      - "${REDISINSIGHT_PORT}:5540"
+    networks:
+      - redis-net
+    environment:
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+    restart: always 
+
+networks:
+  redis-net:
+    driver: bridge
+
+volumes:
+  redis-data:

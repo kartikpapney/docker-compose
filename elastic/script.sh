@@ -1,0 +1,1 @@
+docker network create elasticsearch_elk && docker-compose up -d
